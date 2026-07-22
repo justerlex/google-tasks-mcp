@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+
+# Never commit Google credentials or tokens
+client_secret*.json
+token.json
+.DS_Store

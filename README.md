@@ -1,20 +1,18 @@
 # google-tasks-mcp
 
-An [MCP](https://modelcontextprotocol.io) server for **Google Tasks** with the full API surface: task-list CRUD, task CRUD, move/reorder, and a purpose-built `diff_tasks` tool for harvesting what changed since your agent last looked.
+An [MCP](https://modelcontextprotocol.io) server for **Google Tasks** with the full API surface: task-list CRUD, task CRUD, move/reorder, and a `diff_tasks` change-harvester that tells you what happened since your agent last looked.
 
-Built for agents that maintain a task mirror (project lists your assistant keeps in sync, completions you tick on your phone that the agent picks up later), but works as a general Tasks connector.
+Built for agents that maintain a task mirror (project lists your assistant keeps in sync, completions you tick on your phone that the agent picks up later), but it works fine as a general Tasks connector.
 
 ## Why another one
 
-The existing community servers all fail at least one of these:
+The existing options each miss something this use case needs:
 
-| Capability | This server |
-|---|---|
-| Create / rename / delete task **lists** (per-project lists) | ✅ |
-| Harvest completions made in the Google Tasks apps (they become `hidden`!) | ✅ `diff_tasks` |
-| Move / reorder / re-parent, including across lists | ✅ `move_task` |
-| Runs via `npx`, no clone-and-build | ✅ |
-| Sane auth (one command, refresh token cached, no weekly re-login) | ✅ |
+- [zcaceres/gtasks-mcp](https://github.com/zcaceres/gtasks-mcp), the most-cited one, has no task-list operations at all: you can't create, rename, or delete lists, which rules out per-project lists entirely. The `gtasks-mcp` npm name is also a tombstone (the package was unpublished).
+- [arpitbatra123/mcp-googletasks](https://github.com/arpitbatra123/mcp-googletasks) covers the full surface but isn't on npm, so it's clone-and-build, and auth means pasting an OAuth code back through a tool call.
+- [google_workspace_mcp](https://github.com/taylorwilsdon/google_workspace_mcp) does everything, plus all of Workspace, plus an OAuth 2.1 setup and a native-build gotcha on Windows. Overkill if you only want Tasks.
+
+None of them deal with the API's nastiest quirk: tasks completed in the Google Tasks apps become `hidden`, so a naive query silently misses exactly the completions a sync agent needs to see. `diff_tasks` exists because of that quirk.
 
 ## Install
 
@@ -37,7 +35,7 @@ The Tasks API requires your own OAuth client. No verification, no billing.
 3. **Google Auth Platform** (consent screen): User type **External** (Internal is Workspace-only). App name + your email. Scope: `https://www.googleapis.com/auth/tasks` (classified *sensitive*, not *restricted*: no security audit needed).
 4. **Credentials → Create credentials → OAuth client ID → Desktop app** → download the JSON.
 5. Save it as `~/.config/google-tasks-mcp/client_secret.json` (or point `GTASKS_MCP_CREDENTIALS` at it).
-6. ⚠️ **The trap everyone hits:** while the consent screen's publishing status is **Testing**, refresh tokens expire every 7 days and you will re-auth weekly. Set publishing status to **In production** (skip verification; you'll click through a one-time "Google hasn't verified this app" interstitial: Advanced → Continue). Tokens then persist indefinitely.
+6. **The trap everyone hits:** while the consent screen's publishing status is "Testing", refresh tokens expire every 7 days and you will re-auth weekly. Set publishing status to **In production** (skip verification; you'll click through a one-time "Google hasn't verified this app" interstitial: Advanced → Continue). Tokens then persist indefinitely.
 7. Run `npx google-tasks-mcp auth`: a browser opens, you approve, the refresh token lands in `~/.config/google-tasks-mcp/token.json`. Done forever (revoking access or 6 months of disuse are the only expiries).
 
 ## Environment variables
@@ -50,11 +48,11 @@ The Tasks API requires your own OAuth client. No verification, no billing.
 
 ## Tools
 
-**Task lists:** `list_tasklists` · `get_tasklist` · `create_tasklist` · `update_tasklist` · `delete_tasklist`
+**Task lists:** `list_tasklists`, `get_tasklist`, `create_tasklist`, `update_tasklist`, `delete_tasklist`
 
-**Tasks:** `list_tasks` (filters: completed/hidden/deleted, `updatedMin`, due bounds) · `get_task` · `create_task` · `update_task` · `complete_task` · `delete_task` · `move_task` (reorder, re-parent, or move across lists)
+**Tasks:** `list_tasks` (filters: completed/hidden/deleted, `updatedMin`, due bounds), `get_task`, `create_task`, `update_task`, `complete_task`, `delete_task`, `move_task` (reorder, re-parent, or move across lists)
 
-**Sync:** `diff_tasks(since, [tasklist])` · everything that changed after an RFC3339 timestamp, grouped per list into `completed` / `active` / `deleted`. Sweeps all lists unless one is specified.
+**Sync:** `diff_tasks(since, [tasklist])` returns everything that changed after an RFC3339 timestamp, grouped per list into `completed` / `active` / `deleted`. It sweeps every list unless you name one.
 
 ## Design notes (API sharp edges, handled)
 

@@ -12,14 +12,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { google, tasks_v1 } from "googleapis";
-import { authenticate } from "@google-cloud/local-auth";
+// Per-API package, never the "googleapis" monolith: that one eager-loads all
+// ~330 API surfaces (~7k files) at import and can cold-start slower than an
+// MCP client's connect timeout.
+import { tasks, tasks_v1, auth } from "@googleapis/tasks";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import process from "node:process";
 
-const VERSION = "0.1.0";
+const VERSION = "0.2.0";
 const SCOPES = ["https://www.googleapis.com/auth/tasks"];
 
 const CONFIG_DIR =
@@ -35,7 +37,7 @@ const TOKEN_PATH = process.env.GTASKS_MCP_TOKEN ?? path.join(CONFIG_DIR, "token.
 async function loadSavedClient() {
   try {
     const content = await fs.readFile(TOKEN_PATH, "utf-8");
-    return google.auth.fromJSON(JSON.parse(content));
+    return auth.fromJSON(JSON.parse(content));
   } catch {
     return null;
   }
@@ -70,6 +72,8 @@ async function runAuthFlow(): Promise<void> {
     );
     process.exit(1);
   }
+  // Lazy: only this one-time command needs local-auth, the server never does.
+  const { authenticate } = await import("@google-cloud/local-auth");
   const client = await authenticate({ scopes: SCOPES, keyfilePath: CREDENTIALS_PATH });
   if (!client.credentials.refresh_token) {
     console.error(
@@ -92,7 +96,7 @@ async function api(): Promise<tasks_v1.Tasks> {
       `No saved token at ${TOKEN_PATH}. Run \`npx google-tasks-mcp auth\` once to authenticate.`
     );
   }
-  tasksApi = google.tasks({ version: "v1", auth: client as never });
+  tasksApi = tasks({ version: "v1", auth: client as never });
   return tasksApi;
 }
 

@@ -1,6 +1,6 @@
 {
   "name": "google-tasks-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for Google Tasks with full task-list CRUD and a change-harvesting diff tool. One auth command, then npx-runnable anywhere.",
   "type": "module",
   "bin": {
@@ -41,8 +41,8 @@
   },
   "dependencies": {
     "@google-cloud/local-auth": "^3.0.1",
+    "@googleapis/tasks": "^13.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "googleapis": "^173.0.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
